@@ -1,0 +1,9 @@
+{
+  "buildCommand": "echo 'Ready to deploy'",
+  "outputDirectory": ".",
+  "functions": {
+    "api/*.js": {
+      "runtime": "node18.x"
+    }
+  }
+}

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DCG — Agent CV V8</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--teal:#2E7D7A;--navy:#1C3557;--dot:#9BBFBE;--white:#fff;--bg:#f8f9fa;--card:#fff;--border:#e2e8f0;--text:#1a202c;--muted:#64748b;--success:#059669;--warn:#f59e0b;--error:#dc2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.hdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.hdr img{height:34px;width:auto}
+.hdr-title h1{font-size:18px;font-weight:600;color:var(--navy)}
+.hdr-title p{font-size:13px;color:var(--muted);margin-top:2px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;margin-left:10px;background:#d1fae5;color:#065f46;border:1px solid #10b981}
+.steps{display:flex;margin-bottom:1.5rem;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.stp{flex:1;display:flex;align-items:center;gap:7px;padding:11px 10px;font-size:12px;color:var(--muted);border-bottom:3px solid transparent;transition:all .2s;cursor:pointer}
+.stp:hover{background:#f8fafc}
+.stp.active{color:var(--navy);border-bottom-color:var(--navy);background:#f0f5ff;font-weight:600}
+.stp.done{color:var(--success);border-bottom-color:var(--success)}
+.snum{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:#e2e8f0;color:var(--muted);flex-shrink:0}
+.stp.active .snum{background:var(--navy);color:#fff}
+.stp.done .snum{background:var(--success);color:#fff}
+.panel{display:none;animation:fi .2s ease}
+.panel.active{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:1rem}
+.zone{border:2px dashed var(--border);border-radius:10px;padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.zone:hover,.zone.over{border-color:var(--teal);background:#f0faf9}
+.zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.zone-icon{width:48px;height:48px;background:#e0f2f1;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem;font-size:24px}
+.zone-title{font-size:15px;font-weight:500;margin-bottom:5px;color:var(--navy)}
+.zone-sub{font-size:13px;color:var(--muted)}
+.fpill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;background:#e0f2f1;border-radius:999px;font-size:12px;color:var(--navy);font-weight:500;margin-top:.75rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1rem}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px}
+input[type=text],input[type=password],select,textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--text);transition:border-color .15s}
+input[type=text]:focus,input[type=password]:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal)}
+textarea{resize:vertical;min-height:80px}
+.brow{display:flex;gap:10px;justify-content:flex-end;margin-top:1.25rem}
+.btn{padding:9px 20px;border-radius:8px;font-size:14px;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text);transition:all .15s;font-weight:500}
+.btn:hover{background:#f1f5f9}
+.btn.pri{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.pri:hover{background:#0f2438}
+.btn.pri:disabled,.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sec{background:#e0f2f1;color:var(--teal);border-color:var(--teal)}
+.btn.sec:hover{background:#b3e5db}
+.msg{padding:12px 14px;border-radius:8px;margin-bottom:1rem;font-size:13px;display:flex;align-items:start;gap:8px}
+.msg.ok{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46}
+.msg.err{background:#fee2e2;border:1px solid #fca5a5;color:#7f1d1d}
+.msg.warn{background:#fef3c7;border:1px solid #fcd34d;color:#92400e}
+.msg.info{background:#dbeafe;border:1px solid #93c5fd;color:#1e40af}
+.spinner{display:inline-flex;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin-right:6px}
+.logbox{background:#1a202c;color:#e2e8f0;border-radius:6px;padding:1rem;font-family:'Courier New',monospace;font-size:11px;max-height:200px;overflow-y:auto;margin-bottom:1rem}
+.log-line{padding:2px 0}
+.log-time{color:#64748b;margin-right:8px}
+.corr-item{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:.75rem}
+.corr-type{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-bottom:.5rem}
+.corr-type.fix{background:#fee2e2;color:#7f1d1d}
+.corr-type.improve{background:#fef3c7;color:#92400e}
+.corr-type.add{background:#d1fae5;color:#065f46}
+.score{display:flex;align-items:center;gap:10px;margin-bottom:1rem}
+.score-bar{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.score-fill{height:100%;background:var(--success);border-radius:4px;transition:width .3s}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <img id="mainLogo" src="" alt="Logo" style="height:34px">
+    <div class="hdr-title">
+      <h1>Agent CV <span class="badge">Production</span></h1>
+      <p>Analyse et correction de CV assistée par IA</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="stp active" id="stp1"><span class="snum">1</span>Chargement</div>
+    <div class="stp" id="stp2"><span class="snum">2</span>Paramètres</div>
+    <div class="stp" id="stp3"><span class="snum">3</span>Analyse</div>
+    <div class="stp" id="stp4"><span class="snum">4</span>Corrections</div>
+    <div class="stp" id="stp5"><span class="snum">5</span>Génération</div>
+  </div>
+
+  <div class="panel active" id="p1">
+    <div class="card">
+      <div class="card-title">Étape 1 — Chargement du CV</div>
+      <div class="zone" id="uploadZone">
+        <div class="zone-icon">📄</div>
+        <div class="zone-title">Glissez votre CV ici</div>
+        <div class="zone-sub">PDF, Word (.docx), ou texte brut</div>
+        <input type="file" id="cvFile" accept=".pdf,.docx,.txt,.doc">
+        <div class="fpill" id="fileStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="p2">
+    <div class="card">
+      <div class="card-title">Étape 2 — Configuration</div>
+      <div style="background:#f0f5ff;border:1px solid #bfdbfe;border-radius:8px;padding:1rem;margin-bottom:1rem">
+        <div class="card-title" style="margin-bottom:.75rem">Clé API Anthropic</div>
+        <div class="fg">
+          <label>Entrez votre clé API</label>
+          <input type="password" id="apiKey" placeholder="sk-ant-..." required>
+          <small style="color:var(--muted);display:block;margin-top:3px">Obtenez votre clé depuis <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></small>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="fg">
+          <label>Nom du candidat</label>
+          <input type="text" id="candidateName" placeholder="Jean Dupont">
+        </div>
+        <div class="fg">
+          <label>Poste visé</label>
+          <input type="text" id="targetRole" placeholder="Data Scientist">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Secteur</label>
+        <input type="text" id="sector" placeholder="Tech, Finance...">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="p3">
+    <div class="card">
+      <div class="card-title">Étape 3 — Analyse en cours</div>
+      <div class="logbox" id="logBox"></div>
+      <div id="analysisMsg"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p4">
+    <div class="card">
+      <div class="card-title">Étape 4 — Résultats et Corrections</div>
+      <div id="resultsMsg"></div>
+      <div id="scoreDisplay"></div>
+      <div id="corrDisplay"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p5">
+    <div class="card">
+      <div class="card-title">Étape 5 — Génération du CV</div>
+      <div id="generateMsg"></div>
+      <div class="brow">
+        <button class="btn sec" id="downloadBtn">⬇️ Télécharger le CV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="brow" id="navButtons">
+    <button class="btn" id="backBtn">← Retour</button>
+    <button class="btn pri" id="nextBtn">Suivant →</button>
+  </div>
+</div>
+
+<script>
+// ⚠️ CHANGEZ CETTE URL APRÈS DÉPLOIEMENT SUR VERCEL:
+// Remplacez par: https://votre-projet.vercel.app/api/analyze
+const API_URL = 'https://votre-projet.vercel.app/api/analyze';
+
+const dcgLogoPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAA4CAYAAACMliGyAABPD0lEQVR4nO19d3wdxbX/98zM7m2qLnIFG1uWjUwzwhhDkkvAEJIAJpErQqgBYgippLyXvJf8xE15L73ACwSHFAIE4hsINSG0x6W6ILoFuNu4y+rSLbszc35/7F5ZtmxjHDeS9/789qOr3Z3Z2bO7Z86c';
+
+let state = {
+  step: 1,
+  cvText: '',
+  cvFile: null,
+  candidateName: '',
+  targetRole: '',
+  sector: '',
+  results: null,
+  logs: []
+};
+
+function init() {
+  document.getElementById('mainLogo').src = dcgLogoPng;
+  
+  document.querySelectorAll('.stp').forEach((el, i) => {
+    el.addEventListener('click', () => goToStep(i + 1));
+  });
+  
+  document.getElementById('cvFile').addEventListener('change', handleFileSelect);
+  
+  document.getElementById('uploadZone').addEventListener('dragover', (e) => {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.add('over');
+  });
+  document.getElementById('uploadZone').addEventListener('dragleave', () => {
+    document.getElementById('uploadZone').classList.remove('over');
+  });
+  document.getElementById('uploadZone').addEventListener('drop', (e) => {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.remove('over');
+    if (e.dataTransfer.files[0]) {
+      document.getElementById('cvFile').files = e.dataTransfer.files;
+      handleFileSelect({target: document.getElementById('cvFile')});
+    }
+  });
+  
+  document.getElementById('nextBtn').addEventListener('click', nextStep);
+  document.getElementById('backBtn').addEventListener('click', prevStep);
+  document.getElementById('downloadBtn').addEventListener('click', downloadCV);
+  
+  updateStepDisplay();
+}
+
+async function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  state.cvFile = file;
+  const status = document.getElementById('fileStatus');
+  
+  try {
+    if (file.type === 'application/pdf') {
+      state.cvText = await extractFromPDF(file);
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
+      state.cvText = await extractFromDocx(file);
+    } else {
+      state.cvText = await file.text();
+    }
+    
+    if (state.cvText.length < 100) {
+      status.innerHTML = `<span style="color:var(--error)">❌ Fichier trop court</span>`;
+      return;
+    }
+    
+    status.innerHTML = `<span style="color:var(--success)">✓ ${file.name} (${state.cvText.length} caractères)</span>`;
+    goToStep(2);
+  } catch (err) {
+    status.innerHTML = `<span style="color:var(--error)">❌ Erreur : ${err.message}</span>`;
+  }
+}
+
+async function extractFromPDF(file) {
+  const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+  let text = '';
+  for (let i = 0; i < pdf.numPages; i++) {
+    const page = await pdf.getPage(i + 1);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ');
+  }
+  return text;
+}
+
+async function extractFromDocx(file) {
+  const result = await mammoth.extractRawText({arrayBuffer: await file.arrayBuffer()});
+  return result.value;
+}
+
+function goToStep(n) {
+  if (n < 1 || n > 5) return;
+  if (n > 1 && !state.cvText) {
+    addLog('❌ Veuillez d\'abord charger un CV');
+    return;
+  }
+  state.step = n;
+  updateStepDisplay();
+}
+
+function nextStep() {
+  if (state.step === 2) {
+    state.candidateName = document.getElementById('candidateName').value || 'Candidat';
+    state.targetRole = document.getElementById('targetRole').value || 'Non spécifié';
+    state.sector = document.getElementById('sector').value || 'Non spécifié';
+  }
+  if (state.step === 3) {
+    analyzeCV();
+    return;
+  }
+  if (state.step === 4) {
+    goToStep(5);
+    return;
+  }
+  if (state.step < 5) goToStep(state.step + 1);
+}
+
+function prevStep() {
+  if (state.step > 1) goToStep(state.step - 1);
+}
+
+function updateStepDisplay() {
+  document.querySelectorAll('.panel').forEach((p, i) => {
+    p.classList.toggle('active', i + 1 === state.step);
+  });
+  document.querySelectorAll('.stp').forEach((s, i) => {
+    const n = i + 1;
+    s.classList.toggle('active', n === state.step);
+    s.classList.toggle('done', n < state.step);
+  });
+  document.getElementById('backBtn').style.display = state.step > 1 ? 'block' : 'none';
+  document.getElementById('nextBtn').textContent = state.step === 4 ? 'Générer →' : state.step === 5 ? 'Terminer' : 'Suivant →';
+  document.getElementById('nextBtn').disabled = state.step === 5;
+}
+
+function addLog(msg) {
+  const time = new Date().toLocaleTimeString('fr-FR');
+  state.logs.push({time, msg});
+  const logBox = document.getElementById('logBox');
+  logBox.innerHTML += `<div class="log-line"><span class="log-time">${time}</span><span style="flex:1">${msg}</span></div>`;
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+async function analyzeCV() {
+  goToStep(3);
+  state.logs = [];
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('analysisMsg').innerHTML = '';
+  
+  addLog('🚀 Démarrage de l\'analyse...');
+  
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    addLog('❌ Clé API manquante');
+    document.getElementById('analysisMsg').innerHTML = '<div class="msg err">❌ Veuillez entrer votre clé API</div>';
+    return;
+  }
+  
+  addLog('📮 Envoi du CV au serveur...');
+  
+  try {
+    const prompt = `Tu es un expert en rédaction de CV. Analyse ce CV et réponds UNIQUEMENT en JSON:
+{
+  "before_score": 72,
+  "after_score": 91,
+  "recommendations": [
+    {"type": "fix", "text": "...", "detail": "..."},
+    {"type": "improve", "text": "...", "detail": "..."}
+  ]
+}
+
+CV: ${state.cvText.substring(0, 2500)}`;
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, apiKey })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `Erreur ${response.status}`);
+    }
+
+    const data = await response.json();
+    addLog('📥 Réponse reçue');
+
+    const textContent = data.content[0].text;
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) throw new Error('Format invalide');
+    
+    state.results = JSON.parse(jsonMatch[0]);
+    addLog('✅ Analyse réussie!');
+    goToStep(4);
+    renderResults();
+  } catch (err) {
+    addLog(`❌ Erreur: ${err.message}`);
+    document.getElementById('analysisMsg').innerHTML = `<div class="msg err">❌ ${err.message}</div>`;
+  }
+}
+
+function renderResults() {
+  const r = state.results;
+  if (!r) return;
+
+  const scoreHtml = `
+    <div class="score">
+      <div style="flex-shrink:0">
+        <div style="font-size:12px;color:var(--muted)">Avant</div>
+        <div style="font-size:16px;font-weight:700;color:var(--navy)">${r.before_score}</div>
+      </div>
+      <div style="flex:1"><div class="score-bar"><div class="score-fill" style="width:${r.before_score}%"></div></div></div>
+      <div style="flex-shrink:0">
+        <div style="font-size:12px;color:var(--muted)">Après</div>
+        <div style="font-size:16px;font-weight:700;color:var(--success)">${r.after_score}</div>
+      </div>
+      <div style="flex:1"><div class="score-bar"><div class="score-fill" style="width:${r.after_score}%"></div></div></div>
+    </div>
+  `;
+
+  const corrsHtml = (r.recommendations || []).map(rec => `
+    <div class="corr-item">
+      <div class="corr-type ${rec.type}">${rec.type.toUpperCase()}</div>
+      <div style="font-size:13px;color:var(--text)">${rec.text}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:.5rem">💡 ${rec.detail}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('resultsMsg').innerHTML = '<div class="msg ok">✅ Analyse réussie!</div>';
+  document.getElementById('scoreDisplay').innerHTML = scoreHtml;
+  document.getElementById('corrDisplay').innerHTML = corrsHtml;
+}
+
+async function downloadCV() {
+  document.getElementById('generateMsg').innerHTML = '<div class="msg info"><span class="spinner"></span>Génération...</div>';
+  
+  try {
+    const blob = buildDocxBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.candidateName.replace(/\s+/g, '_')}_CV.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    document.getElementById('generateMsg').innerHTML = '<div class="msg ok">✅ Téléchargement réussi!</div>';
+  } catch (err) {
+    document.getElementById('generateMsg').innerHTML = `<div class="msg err">❌ ${err.message}</div>`;
+  }
+}
+
+function buildDocxBlob() {
+  const zip = new JSZip();
+  
+  zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  
+  const recs = state.results?.recommendations || [];
+  const recXml = recs.map(r => `<w:p><w:r><w:rPr><w:b/><w:color w:val="${r.type === 'fix' ? 'DC2626' : 'F59E0B'}"/></w:rPr><w:t>${r.type.toUpperCase()}</w:t></w:r><w:r><w:t> - ${r.text}</w:t></w:r></w:p>`).join('');
+
+  const doc = `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>${state.candidateName}</w:t></w:r></w:p><w:p><w:r><w:t>${state.targetRole} - ${state.sector}</w:t></w:r></w:p><w:p><w:r><w:t/></w:r></w:p><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Résultats</w:t></w:r></w:p><w:p><w:r><w:t>Score avant: ${state.results?.before_score || 0}/100</w:t></w:r></w:p><w:p><w:r><w:t>Score après: ${state.results?.after_score || 0}/100</w:t></w:r></w:p><w:p><w:r><w:t/></w:r></w:p><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Corrections</w:t></w:r></w:p>${recXml}</w:body></w:document>`;
+
+  zip.file('word/document.xml', doc);
+
+  return zip.generateAsync({type: 'blob'});
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
