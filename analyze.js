@@ -1,9 +1,8 @@
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -15,6 +14,10 @@ export default async function handler(req, res) {
   }
 
   const { prompt, apiKey } = req.body;
+
+  if (!prompt || !apiKey) {
+    return res.status(400).json({ error: 'Missing prompt or apiKey' });
+  }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -33,7 +36,9 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const error = await response.json();
-      return res.status(response.status).json({ error: error.error?.message || 'API Error' });
+      return res.status(response.status).json({ 
+        error: error.error?.message || 'API Error' 
+      });
     }
 
     const data = await response.json();
